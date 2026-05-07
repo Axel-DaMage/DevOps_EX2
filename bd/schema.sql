@@ -1,0 +1,26 @@
+CREATE TABLE IF NOT EXISTS inventory_items (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  name VARCHAR(120) NOT NULL,
+  category VARCHAR(80) NOT NULL,
+  stock INT NOT NULL DEFAULT 0,
+  location VARCHAR(120) NOT NULL,
+  minimum_stock INT NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS support_tickets (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(140) NOT NULL,
+  description TEXT NOT NULL,
+  priority ENUM('baja', 'media', 'alta') NOT NULL DEFAULT 'media',
+  status ENUM('abierto', 'en_proceso', 'cerrado') NOT NULL DEFAULT 'abierto',
+  related_item_id INT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_ticket_item
+    FOREIGN KEY (related_item_id)
+    REFERENCES inventory_items(id)
+    ON DELETE SET NULL
+    ON UPDATE CASCADE
+);
