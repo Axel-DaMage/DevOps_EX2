@@ -118,7 +118,7 @@ jobs:
           echo "Buscando instancia EC2 del backend"
           # TODO: Cambiar 'devops-backend' por el tag Name de tu instancia EC2 del backend
           INSTANCE_ID=$(aws ec2 describe-instances \
-            --filters "Name=tag:Name,Values=devops-backend" \
+            --filters "Name=tag:Name,Values=Backend" \
                       "Name=instance-state-name,Values=running" \
             --query "Reservations[0].Instances[0].InstanceId" \
             --output text 2>/dev/null || echo "None")
@@ -188,7 +188,7 @@ jobs:
         run: |
           echo "Buscando instancia EC2 del frontend"
           INSTANCE_ID=$(aws ec2 describe-instances \
-            --filters "Name=tag:Name,Values=devops-frontend" \
+            --filters "Name=tag:Name,Values=Frontend" \
                       "Name=instance-state-name,Values=running" \
             --query "Reservations[0].Instances[0].InstanceId" \
             --output text 2>/dev/null || echo "None")
