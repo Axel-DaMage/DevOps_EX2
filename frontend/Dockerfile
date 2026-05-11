@@ -15,6 +15,7 @@ RUN npm run build
 FROM nginx:alpine
 
 # Limpieza de archivos por defecto de Nginx y copia de la build
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 
 EXPOSE 80
