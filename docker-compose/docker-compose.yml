@@ -10,6 +10,9 @@ services:
 
     depends_on:
       - backend
+    
+    networks:
+      - innovatech_net
 
 
   backend:
@@ -27,6 +30,9 @@ services:
 
     depends_on:
       - mysql
+    
+    networks:
+      - innovatech_net
 
 
   mysql:
@@ -45,7 +51,13 @@ services:
       - mysql_data:/var/lib/mysql
       - ../bd/schema.sql:/docker-entrypoint-initdb.d/1-schema.sql
       - ../bd/seed.sql:/docker-entrypoint-initdb.d/2-seed.sql
+    
+    networks:
+      - innovatech_net
 
+networks:
+  innovatech_net:
+    driver: bridge
 
 volumes:
   mysql_data:
