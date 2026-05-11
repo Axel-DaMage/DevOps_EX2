@@ -7,8 +7,7 @@
 #   - AWS_ACCESS_KEY_ID: Access Key ID de AWS
 #   - AWS_SECRET_ACCESS_KEY: Secret Access Key de AWS
 #   - AWS_SESSION_TOKEN: Session Token de AWS
-# 
-# Variables de entorno del backend (agregar en EC2):
+#   - VITE_API_URL: URL pública del backend para el frontend
 #   - DB_HOST: Host de la base de datos
 #   - DB_USER: Usuario de la BD
 #   - DB_PASSWORD: Contraseña de la BD
@@ -84,6 +83,8 @@ jobs:
           context: ./frontend
           file: ./frontend/Dockerfile
           push: true
+          build-args: |
+            VITE_API_URL=${{ secrets.VITE_API_URL || 'http://localhost:3000' }}
           # TODO: Cambiar 'devops-frontend' por tu nombre de imagen en DockerHub
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/devops-frontend:${{ env.IMAGE_TAG }}
@@ -158,7 +159,7 @@ jobs:
               "docker pull $DOCKER_IMAGE",
               "docker stop devops-backend || true",
               "docker rm devops-backend || true",
-              "docker run -d --name devops-backend -p 3000:3000 --restart unless-stopped $DOCKER_IMAGE",
+              "docker run -d --name devops-backend -p 3000:3000 -e PORT=3000 -e DB_HOST=${{ secrets.DB_HOST }} -e DB_USER=${{ secrets.DB_USER }} -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} -e DB_NAME=${{ secrets.DB_NAME }} --restart unless-stopped $DOCKER_IMAGE",
               "echo \"Despliegue del backend completado\""
             ]' \
             --region us-east-1 \
@@ -227,7 +228,7 @@ jobs:
               "docker pull $DOCKER_IMAGE",
               "docker stop devops-frontend || true",
               "docker rm devops-frontend || true",
-              "docker run -d --name devops-frontend -p 80:3000 --restart unless-stopped $DOCKER_IMAGE",
+              "docker run -d --name devops-frontend -p 80:80 --restart unless-stopped $DOCKER_IMAGE",
               "echo \"Despliegue del frontend completado\""
             ]' \
             --region us-east-1 \
