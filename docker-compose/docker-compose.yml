@@ -4,7 +4,7 @@ services:
     build: 
       context: ../frontend
       args:
-        - VITE_API_URL=http://localhost:3000
+        - VITE_API_URL=/api
     ports:
       - "80:80"
 
@@ -19,10 +19,10 @@ services:
     build: ../backend
 
     ports:
-      - "3000:3000"
+      - "8080:8080"
 
     environment:
-      PORT: 3000
+      PORT: 8080
       DB_HOST: mysql
       DB_USER: root
       DB_PASSWORD: root
