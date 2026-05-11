@@ -81,7 +81,7 @@ jobs:
           file: ./frontend/Dockerfile
           push: true
           build-args: |
-            VITE_API_URL=${{ secrets.VITE_API_URL || 'http://localhost:3001' }}
+            VITE_API_URL=${{ secrets.VITE_API_URL || 'http://localhost:8080' }}
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/devops-frontend:${{ env.IMAGE_TAG }}
             ${{ secrets.DOCKERHUB_USERNAME }}/devops-frontend:${{ env.LATEST_TAG }}
@@ -154,7 +154,7 @@ jobs:
               "docker pull $DOCKER_IMAGE",
               "docker stop devops-backend || true",
               "docker rm devops-backend || true",
-              "docker run -d --name devops-backend -p 3001:3001 -e PORT=3001 -e CORS_ORIGIN=${{ secrets.CORS_ORIGIN }} -e DB_HOST=${{ secrets.DB_HOST }} -e DB_USER=${{ secrets.DB_USER }} -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} -e DB_NAME=${{ secrets.DB_NAME }} --restart unless-stopped $DOCKER_IMAGE",
+              "docker run -d --name devops-backend -p 8080:8080 -e PORT=8080 -e CORS_ORIGIN=${{ secrets.CORS_ORIGIN }} -e DB_HOST=${{ secrets.DB_HOST }} -e DB_USER=${{ secrets.DB_USER }} -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} -e DB_NAME=${{ secrets.DB_NAME }} --restart unless-stopped $DOCKER_IMAGE",
               "echo \"Despliegue del backend completado\""
             ]' \
             --region us-east-1 \
