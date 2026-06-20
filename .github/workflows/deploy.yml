@@ -1,20 +1,4 @@
-# ============================================
-# TODO: CONFIGURAR
-# ============================================
-# Secretos necesarios en GitHub:
-#   - DOCKERHUB_USERNAME: Usuario de DockerHub
-#   - DOCKERHUB_TOKEN: Token de acceso de DockerHub
-#   - AWS_ACCESS_KEY_ID: Access Key ID de AWS
-#   - AWS_SECRET_ACCESS_KEY: Secret Access Key de AWS
-#   - AWS_SESSION_TOKEN: Session Token de AWS
-#   - VITE_API_URL: URL pública del backend para el frontend
-#   - DB_HOST: Host de la base de datos
-#   - DB_USER: Usuario de la BD
-#   - DB_PASSWORD: Contraseña de la BD
-#   - DB_NAME: Nombre de la BD
-# ============================================
-
-name: Deploy a AWS learner Lab
+name: Deploy to ECS Fargate
 
 on:
   push:
@@ -22,233 +6,102 @@ on:
   workflow_dispatch:
 
 env:
-  DOCKERHUB_REGISTRY: docker.io
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.us-east-1.amazonaws.com
   IMAGE_TAG: ${{ github.sha }}
-  LATEST_TAG: latest
 
 jobs:
   build-and-push-backend:
     runs-on: ubuntu-latest
     steps:
-      - name: Clonar código
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Configurar Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      - name: Iniciar sesión en DockerHub
-        uses: docker/login-action@v2
+      - name: Configurar credenciales AWS
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Construir y publicar imagen del backend
-        uses: docker/build-push-action@v4
-        with:
-          context: ./backend
-          file: ./backend/Dockerfile
-          push: true
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/devops-backend:${{ env.IMAGE_TAG }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/devops-backend:${{ env.LATEST_TAG }}
-          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/devops-backend:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/devops-backend:buildcache,mode=max
+      - name: Iniciar sesion en ECR
+        run: aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
 
-      - name: Resumen del build del backend
+      - name: Construir y publicar backend
         run: |
-          echo "La imagen Docker del backend se construyó y publicó correctamente"
-          echo "Imagen: ${{ secrets.DOCKERHUB_USERNAME }}/devops-backend:${{ env.IMAGE_TAG }}"
+          docker build -t innovatech/backend:$IMAGE_TAG -t innovatech/backend:latest ./backend
+          docker tag innovatech/backend:$IMAGE_TAG $ECR_REGISTRY/innovatech/backend:$IMAGE_TAG
+          docker tag innovatech/backend:latest $ECR_REGISTRY/innovatech/backend:latest
+          docker push $ECR_REGISTRY/innovatech/backend:$IMAGE_TAG
+          docker push $ECR_REGISTRY/innovatech/backend:latest
 
   build-and-push-frontend:
     runs-on: ubuntu-latest
     steps:
-      - name: Clonar código
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Configurar Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      - name: Iniciar sesión en DockerHub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Construir y publicar imagen del frontend
-        uses: docker/build-push-action@v4
-        with:
-          context: ./frontend
-          file: ./frontend/Dockerfile
-          push: true
-          build-args: |
-            VITE_API_URL=${{ secrets.VITE_API_URL || 'http://localhost:3001' }}
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/devops-frontend:${{ env.IMAGE_TAG }}
-            ${{ secrets.DOCKERHUB_USERNAME }}/devops-frontend:${{ env.LATEST_TAG }}
-          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/devops-frontend:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/devops-frontend:buildcache,mode=max
-
-      - name: Resumen del build del frontend
-        run: |
-          echo "La imagen Docker del frontend se construyó y publicó correctamente"
-          echo "Imagen: ${{ secrets.DOCKERHUB_USERNAME }}/devops-frontend:${{ env.IMAGE_TAG }}"
-
-  deploy-backend-to-ec2:
-    needs: build-and-push-backend
-    runs-on: ubuntu-latest
-    steps:
-      - name: Clonar código
-        uses: actions/checkout@v4
-
-      - name: Configurar credenciales de AWS
+      - name: Configurar credenciales AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-          aws-region: us-east-1
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Verificar instancia EC2 del backend
-        id: check-backend-ec2
+      - name: Iniciar sesion en ECR
+        run: aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REGISTRY
+
+      - name: Construir y publicar frontend
         run: |
-          echo "Buscando instancia EC2 del backend"
-          # TODO: Cambiar 'devops-backend' por el tag Name de tu instancia EC2 del backend
-          INSTANCE_ID=$(aws ec2 describe-instances \
-            --filters "Name=tag:Name,Values=Backend" \
-                      "Name=instance-state-name,Values=running" \
-            --query "Reservations[0].Instances[0].InstanceId" \
-            --output text 2>/dev/null || echo "None")
-          
-          if [ "$INSTANCE_ID" != "None" ] && [ ! -z "$INSTANCE_ID" ]; then
-            echo "Instancia EC2 del backend encontrada: $INSTANCE_ID"
-            echo "instance-id=$INSTANCE_ID" >> $GITHUB_OUTPUT
-            echo "instance-exists=true" >> $GITHUB_OUTPUT
-            
-            PUBLIC_IP=$(aws ec2 describe-instances \
-              --instance-ids $INSTANCE_ID \
-              --query "Reservations[0].Instances[0].PublicIpAddress" \
-              --output text)
-            echo "public-ip=$PUBLIC_IP" >> $GITHUB_OUTPUT
-          else
-            echo "No se encontró una instancia EC2 del backend en ejecución"
-            echo "instance-exists=false" >> $GITHUB_OUTPUT
-          fi
+          docker build \
+            --build-arg VITE_API_URL=/api \
+            -t innovatech/frontend:$IMAGE_TAG -t innovatech/frontend:latest \
+            ./frontend
+          docker tag innovatech/frontend:$IMAGE_TAG $ECR_REGISTRY/innovatech/frontend:$IMAGE_TAG
+          docker tag innovatech/frontend:latest $ECR_REGISTRY/innovatech/frontend:latest
+          docker push $ECR_REGISTRY/innovatech/frontend:$IMAGE_TAG
+          docker push $ECR_REGISTRY/innovatech/frontend:latest
 
-      - name: Desplegar backend en EC2 (si existe)
-        if: steps.check-backend-ec2.outputs.instance-exists == 'true'
-        run: |
-          INSTANCE_ID="${{ steps.check-backend-ec2.outputs.instance-id }}"
-          
-          echo "Desplegando backend en la instancia EC2: $INSTANCE_ID"
-          
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids "$INSTANCE_ID" \
-            --document-name "AWS-RunShellScript" \
-            --parameters 'commands=[
-              "export DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}",
-              "export DOCKERHUB_TOKEN=${{ secrets.DOCKERHUB_TOKEN }}",
-              "export IMAGE_TAG=${{ env.IMAGE_TAG }}",
-              "export DOCKER_IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/devops-backend:${{ env.IMAGE_TAG }}",
-              "echo \"Desplegando la imagen Docker del backend\"",
-              "docker login -u $DOCKERHUB_USERNAME -p $DOCKERHUB_TOKEN",
-              "docker pull $DOCKER_IMAGE",
-              "docker stop devops-backend || true",
-              "docker rm devops-backend || true",
-              "docker run -d --name devops-backend -p 3001:3001 -e PORT=3001 -e CORS_ORIGIN=${{ secrets.CORS_ORIGIN }} -e DB_HOST=${{ secrets.DB_HOST }} -e DB_USER=${{ secrets.DB_USER }} -e DB_PASSWORD=${{ secrets.DB_PASSWORD }} -e DB_NAME=${{ secrets.DB_NAME }} --restart unless-stopped $DOCKER_IMAGE",
-              "echo \"Despliegue del backend completado\""
-            ]' \
-            --region us-east-1 \
-            --output text \
-            --query 'Command.CommandId')
-          
-          echo "Comando de despliegue del backend enviado: $COMMAND_ID"
-
-  deploy-frontend-to-ec2:
-    needs: build-and-push-frontend
+  deploy:
+    needs: [build-and-push-backend, build-and-push-frontend]
     runs-on: ubuntu-latest
     steps:
-      - name: Clonar código
-        uses: actions/checkout@v4
-
-      - name: Configurar credenciales de AWS
+      - name: Configurar credenciales AWS
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
-          aws-region: us-east-1
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Verificar instancia EC2 del frontend
-        id: check-frontend-ec2
+      - name: Forzar nuevo despliegue del frontend
         run: |
-          echo "Buscando instancia EC2 del frontend"
-          INSTANCE_ID=$(aws ec2 describe-instances \
-            --filters "Name=tag:Name,Values=Frontend" \
-                      "Name=instance-state-name,Values=running" \
-            --query "Reservations[0].Instances[0].InstanceId" \
-            --output text 2>/dev/null || echo "None")
-          
-          if [ "$INSTANCE_ID" != "None" ] && [ ! -z "$INSTANCE_ID" ]; then
-            echo "Instancia EC2 del frontend encontrada: $INSTANCE_ID"
-            echo "instance-id=$INSTANCE_ID" >> $GITHUB_OUTPUT
-            echo "instance-exists=true" >> $GITHUB_OUTPUT
-            
-            PUBLIC_IP=$(aws ec2 describe-instances \
-              --instance-ids $INSTANCE_ID \
-              --query "Reservations[0].Instances[0].PublicIpAddress" \
-              --output text)
-            echo "public-ip=$PUBLIC_IP" >> $GITHUB_OUTPUT
-          else
-            echo "No se encontró una instancia EC2 del frontend en ejecución"
-            echo "instance-exists=false" >> $GITHUB_OUTPUT
-          fi
+          aws ecs update-service --cluster innovatech-cluster --service frontend-service --force-new-deployment
 
-      - name: Desplegar frontend en EC2 (si existe)
-        if: steps.check-frontend-ec2.outputs.instance-exists == 'true'
+      - name: Forzar nuevo despliegue del backend
         run: |
-          INSTANCE_ID="${{ steps.check-frontend-ec2.outputs.instance-id }}"
-          
-          echo "Desplegando frontend en la instancia EC2: $INSTANCE_ID"
-          
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids "$INSTANCE_ID" \
-            --document-name "AWS-RunShellScript" \
-            --parameters 'commands=[
-              "export DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}",
-              "export DOCKERHUB_TOKEN=${{ secrets.DOCKERHUB_TOKEN }}",
-              "export IMAGE_TAG=${{ env.IMAGE_TAG }}",
-              "export DOCKER_IMAGE=${{ secrets.DOCKERHUB_USERNAME }}/devops-frontend:${{ env.IMAGE_TAG }}",
-              "echo \"Desplegando la imagen Docker del frontend\"",
-              "docker login -u $DOCKERHUB_USERNAME -p $DOCKERHUB_TOKEN",
-              "docker pull $DOCKER_IMAGE",
-              "docker stop devops-frontend || true",
-              "docker rm devops-frontend || true",
-              "docker run -d --name devops-frontend -p 80:80 --restart unless-stopped $DOCKER_IMAGE",
-              "echo \"Despliegue del frontend completado\""
-            ]' \
-            --region us-east-1 \
-            --output text \
-            --query 'Command.CommandId')
-          
-          echo "Comando de despliegue del frontend enviado: $COMMAND_ID"
+          aws ecs update-service --cluster innovatech-cluster --service backend-service --force-new-deployment
 
-  deployment-summary:
-    needs: [deploy-backend-to-ec2, deploy-frontend-to-ec2]
+      - name: Esperar estabilidad del frontend
+        run: |
+          aws ecs wait services-stable --cluster innovatech-cluster --services frontend-service
+
+      - name: Esperar estabilidad del backend
+        run: |
+          aws ecs wait services-stable --cluster innovatech-cluster --services backend-service
+
+  summary:
+    needs: deploy
     runs-on: ubuntu-latest
     if: always()
     steps:
-      - name: Resumen del despliegue
-        run: |
+      - run: |
           echo "================================"
-          echo "RESUMEN DEL DESPLIEGUE CI/CD"
+          echo "  DEPLOY COMPLETADO"
           echo "================================"
-          echo ""
           echo "Commit: ${{ github.sha }}"
           echo "Branch: ${{ github.ref_name }}"
-          echo "Trigger: Push a la rama deploy"
-          echo ""
-          echo "Imágenes Docker:"
-          echo "  - Backend: ${{ secrets.DOCKERHUB_USERNAME }}/devops-backend:${{ env.IMAGE_TAG }}"
-          echo "  - Frontend: ${{ secrets.DOCKERHUB_USERNAME }}/devops-frontend:${{ env.IMAGE_TAG }}"
-          echo ""
+          echo "Frontend: ${{ secrets.ECR_REGISTRY }}/innovatech/frontend:${{ env.IMAGE_TAG }}"
+          echo "Backend:  ${{ secrets.ECR_REGISTRY }}/innovatech/backend:${{ env.IMAGE_TAG }}"
+          echo "ALB URL:  http://innovatech-alb-688188016.us-east-1.elb.amazonaws.com"
           echo "================================"

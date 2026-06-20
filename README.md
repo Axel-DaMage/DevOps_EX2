@@ -300,3 +300,5 @@ Conviene pedir que muestren:
 6. estado de contenedores en EC2.
 7. prueba funcional desde navegador.
 8. evidencia de persistencia.
+
+Commit
