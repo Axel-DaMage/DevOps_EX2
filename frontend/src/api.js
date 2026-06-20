@@ -22,13 +22,13 @@ async function request(path, options = {}) {
 }
 
 export const api = {
-  getDashboard: () => request("/api/dashboard"),
-  getItems: () => request("/api/items"),
-  createItem: (data) => request("/api/items", { method: "POST", body: JSON.stringify(data) }),
-  updateItem: (id, data) => request(`/api/items/${id}`, { method: "PUT", body: JSON.stringify(data) }),
-  deleteItem: (id) => request(`/api/items/${id}`, { method: "DELETE" }),
-  getTickets: () => request("/api/tickets"),
-  createTicket: (data) => request("/api/tickets", { method: "POST", body: JSON.stringify(data) }),
-  updateTicket: (id, data) => request(`/api/tickets/${id}`, { method: "PUT", body: JSON.stringify(data) }),
-  deleteTicket: (id) => request(`/api/tickets/${id}`, { method: "DELETE" })
+  getDashboard: () => request("/dashboard"),
+  getItems: () => request("/items"),
+  createItem: (data) => request("/items", { method: "POST", body: JSON.stringify(data) }),
+  updateItem: (id, data) => request(`/items/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteItem: (id) => request(`/items/${id}`, { method: "DELETE" }),
+  getTickets: () => request("/tickets"),
+  createTicket: (data) => request("/tickets", { method: "POST", body: JSON.stringify(data) }),
+  updateTicket: (id, data) => request(`/tickets/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteTicket: (id) => request(`/tickets/${id}`, { method: "DELETE" })
 };
