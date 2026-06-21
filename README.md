@@ -187,6 +187,7 @@ cd frontend
 npm install
 npm run dev
 ```
+1
 
 ## Trabajo esperado del estudiante
 
